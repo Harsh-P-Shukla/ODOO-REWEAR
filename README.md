@@ -1,3 +1,11 @@
+TEAM NAME :- ALPHA CODER
+
+TEAM MEMBERS:-
+1. SIDDHIT KALE : D23CS102@CHARUSAT.EDU.IN
+2. HARSH SHUKLA : D23DCS162@CHARUSAT.EDU.IN
+3. DHRUV PATEL
+4. MEET PARMAR
+
 # ReWear - Community Clothing Exchange
 
 A modern web application for swapping and exchanging clothing items with a credit-based system.
