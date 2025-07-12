@@ -6,6 +6,9 @@ TEAM MEMBERS:-
 3. DHRUV PATEL
 4. MEET PARMAR
 
+video link for demonstration:
+https://drive.google.com/file/d/12N8SbbrAlHPOfwxyF1_viCNvqMeC5mOm/view?usp=sharing
+
 # ReWear - Community Clothing Exchange
 
 A modern web application for swapping and exchanging clothing items with a credit-based system.
