@@ -200,7 +200,6 @@ userSchema.virtual('level').get(function() {
 });
 
 // Indexes for better query performance
-userSchema.index({ email: 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ 'location.city': 1, 'location.state': 1 });
 userSchema.index({ 'stats.itemsListed': -1 });

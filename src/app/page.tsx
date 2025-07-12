@@ -1,326 +1,256 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Pagination, Autoplay, Navigation as SwiperNavigation } from 'swiper/modules';
+import { Pagination, Navigation as SwiperNavigation } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 import Navigation from '@/components/Navigation';
+import { useCart } from '@/contexts/CartContext';
+import toast from 'react-hot-toast';
 
-// Placeholder data
-const featuredItems = [
-  {
-    id: '1',
-    title: 'Vintage Denim Jacket',
-    image: 'https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=400&h=400&fit=crop',
-    points: 150,
-    category: 'clothing',
-    brand: 'Levi\'s',
-    condition: 'vintage',
-  },
-  {
-    id: '2',
-    title: 'Leather Crossbody Bag',
-    image: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400&h=400&fit=crop',
-    points: 200,
-    category: 'bags',
-    brand: 'Coach',
-    condition: 'gently_used',
-  },
-  {
-    id: '3',
-    title: 'Classic White Sneakers',
-    image: 'https://images.unsplash.com/photo-1549298916-b41d114d2c9d?w=400&h=400&fit=crop',
-    points: 180,
-    category: 'shoes',
-    brand: 'Nike',
-    condition: 'like_new',
-  },
-  {
-    id: '4',
-    title: 'Silk Scarf Collection',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=400&fit=crop',
-    points: 80,
-    category: 'accessories',
-    brand: 'Hermès',
-    condition: 'new',
-  },
-];
+interface Item {
+  id: string;
+  title: string;
+  description: string;
+  images: string[];
+  points: number;
+  category: string;
+  type: string;
+  size: string;
+  condition: string;
+  brand: string;
+  location: string;
+  status: string;
+  seller: {
+    name: string;
+    email: string;
+  };
+  createdAt: string;
+}
 
 const categories = [
-  { id: 'clothing', name: 'Clothing', icon: '👕', color: 'from-blue-500 to-cyan-500', gradient: 'bg-gradient-to-r from-blue-500 to-cyan-500' },
-  { id: 'accessories', name: 'Accessories', icon: '👜', color: 'from-purple-500 to-pink-500', gradient: 'bg-gradient-to-r from-purple-500 to-pink-500' },
-  { id: 'shoes', name: 'Shoes', icon: '👟', color: 'from-green-500 to-emerald-500', gradient: 'bg-gradient-to-r from-green-500 to-emerald-500' },
-  { id: 'bags', name: 'Bags', icon: '🛍️', color: 'from-pink-500 to-rose-500', gradient: 'bg-gradient-to-r from-pink-500 to-rose-500' },
-  { id: 'jewelry', name: 'Jewelry', icon: '💍', color: 'from-yellow-500 to-orange-500', gradient: 'bg-gradient-to-r from-yellow-500 to-orange-500' },
-];
-
-const stats = [
-  { number: '10K+', label: 'Items Swapped', icon: '🔄' },
-  { number: '5K+', label: 'Happy Users', icon: '😊' },
-  { number: '50K+', label: 'Points Exchanged', icon: '⭐' },
-  { number: '100%', label: 'Sustainable', icon: '🌱' },
+  { id: 'clothing', name: 'Clothing', icon: '👕', color: 'from-blue-500 to-cyan-500' },
+  { id: 'accessories', name: 'Accessories', icon: '👜', color: 'from-purple-500 to-pink-500' },
+  { id: 'shoes', name: 'Shoes', icon: '👟', color: 'from-green-500 to-emerald-500' },
+  { id: 'bags', name: 'Bags', icon: '🛍️', color: 'from-pink-500 to-rose-500' },
+  { id: 'jewelry', name: 'Jewelry', icon: '💍', color: 'from-yellow-500 to-orange-500' },
 ];
 
 export default function HomePage() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const { addToCart } = useCart();
+  const [featuredItems, setFeaturedItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFeaturedItems = async () => {
+      try {
+        const response = await fetch('/api/items/browse?limit=8');
+        const data = await response.json();
+        
+        if (data.success) {
+          setFeaturedItems(data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching featured items:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeaturedItems();
+  }, []);
+
+  const handleAddToCart = (item: Item) => {
+    // Check if item is available before adding to cart
+    if (item.status !== 'available') {
+      toast.error(`${item.title} is no longer available`);
+      return;
+    }
+    
+    addToCart({
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      images: item.images,
+      points: item.points,
+      category: item.category,
+      type: item.type,
+      size: item.size,
+      condition: item.condition,
+      seller: item.seller,
+    });
+    toast.success(`${item.title} added to cart!`);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
       <Navigation />
       
       {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        {/* Animated background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700">
-          <div className="absolute inset-0 bg-black/20"></div>
-          <motion.div
-            className="absolute top-20 left-20 w-72 h-72 bg-white/10 rounded-full blur-3xl"
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.3, 0.5, 0.3],
-            }}
-            transition={{
-              duration: 4,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
-          <motion.div
-            className="absolute bottom-20 right-20 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl"
-            animate={{
-              scale: [1.2, 1, 1.2],
-              opacity: [0.4, 0.6, 0.4],
-            }}
-            transition={{
-              duration: 5,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
-        </div>
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32">
+      <section className="relative pt-20 pb-32 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20"></div>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, ease: "easeOut" }}
-            className="text-center text-white"
+            transition={{ duration: 0.8 }}
+            className="text-center"
           >
-            <motion.h1 
-              className="text-5xl md:text-7xl font-bold mb-8 leading-tight"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-            >
-              Sustainable Fashion
-              <br />
-              <span className="bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent">
-                Community Exchange
-              </span>
-            </motion.h1>
-            
-            <motion.p 
-              className="text-xl md:text-2xl mb-12 text-blue-100 max-w-3xl mx-auto leading-relaxed"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-            >
-              Join thousands of fashion enthusiasts in the ultimate sustainable clothing exchange. 
-              Swap, share, and discover amazing pieces while building a greener future.
-            </motion.p>
-            
-            {/* Search Bar */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
-              className="max-w-md mx-auto mb-12"
-            >
-              <div className="relative group">
-                <input
-                  type="text"
-                  placeholder="Search for items..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-6 py-4 pl-14 text-gray-900 rounded-2xl focus:outline-none focus:ring-4 focus:ring-yellow-300/50 bg-white/90 backdrop-blur-sm border-0 shadow-2xl transition-all duration-300 group-hover:bg-white group-hover:shadow-3xl"
-                />
-                <svg
-                  className="absolute left-5 top-1/2 transform -translate-y-1/2 w-6 h-6 text-gray-400 group-hover:text-gray-600 transition-colors duration-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-6">
+              ReWear
+              <span className="block text-4xl md:text-5xl text-blue-600">Community Clothing Exchange</span>
+            </h1>
+            <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto">
+              Join our sustainable fashion community. Swap, share, and discover amazing pieces while earning points for your contributions.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/browse">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="btn-primary text-lg px-8 py-4"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-            </motion.div>
-            
-            {/* CTA Buttons */}
-            <motion.div 
-              className="flex flex-col sm:flex-row gap-6 justify-center items-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.8 }}
-            >
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Link
-                  href="/browse"
-                  className="inline-block bg-gradient-to-r from-yellow-400 to-orange-400 text-gray-900 font-bold py-4 px-8 rounded-2xl hover:from-yellow-300 hover:to-orange-300 transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:-translate-y-1"
+                  Browse Items
+                </motion.button>
+              </Link>
+              <Link href="/add-item">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="btn-secondary text-lg px-8 py-4"
                 >
-                  Start Swapping
-                </Link>
-              </motion.div>
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Link
-                  href="/add-item"
-                  className="inline-block bg-white/20 backdrop-blur-sm border-2 border-white text-white font-bold py-4 px-8 rounded-2xl hover:bg-white hover:text-gray-900 transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:-translate-y-1"
-                >
-                  List an Item
-                </Link>
-              </motion.div>
-            </motion.div>
+                  Add Your Item
+                </motion.button>
+              </Link>
+            </div>
           </motion.div>
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-16 bg-white/50 backdrop-blur-sm">
+      {/* Featured Items */}
+      <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-8"
-          >
-            {stats.map((stat, index) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className="text-center group"
-              >
-                <div className="text-4xl mb-2 group-hover:scale-110 transition-transform duration-300">
-                  {stat.icon}
-                </div>
-                <div className="text-3xl font-bold text-gray-900 mb-1">{stat.number}</div>
-                <div className="text-gray-600">{stat.label}</div>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Featured Items Carousel */}
-      <section className="py-20 bg-gradient-to-br from-white to-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="text-center mb-12"
           >
             <h2 className="text-4xl font-bold text-gray-900 mb-4">Featured Items</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Discover amazing pieces from our community of fashion enthusiasts
-            </p>
+            <p className="text-xl text-gray-600">Discover amazing pieces from our community</p>
           </motion.div>
-          
-          <Swiper
-            modules={[Pagination, Autoplay, SwiperNavigation]}
-            spaceBetween={30}
-            slidesPerView={1}
-            pagination={{ clickable: true }}
-            navigation={true}
-            autoplay={{ delay: 4000, disableOnInteraction: false }}
-            breakpoints={{
-              640: { slidesPerView: 2 },
-              768: { slidesPerView: 3 },
-              1024: { slidesPerView: 4 },
-            }}
-            className="featured-swiper"
-          >
-            {featuredItems.map((item, index) => (
-              <SwiperSlide key={item.id}>
+
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading featured items...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredItems.map((item, index) => (
                 <motion.div
+                  key={item.id}
                   initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
-                  viewport={{ once: true }}
-                  whileHover={{ y: -10, scale: 1.02 }}
-                  className="card p-6 h-full"
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  whileHover={{ y: -5, scale: 1.02 }}
+                  className="card p-4 h-full"
                 >
-                  <div className="aspect-square mb-6 overflow-hidden rounded-2xl">
+                  <div className="aspect-square mb-4 overflow-hidden rounded-2xl">
                     <img
-                      src={item.image}
+                      src={item.images[0] || 'https://via.placeholder.com/400x400?text=No+Image'}
                       alt={item.title}
                       className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
                     />
                   </div>
-                  <div className="space-y-3">
-                    <h3 className="font-bold text-lg text-gray-900 line-clamp-2">{item.title}</h3>
-                    <div className="flex items-center justify-between">
-                      <span className="text-blue-600 font-bold text-lg">{item.points} points</span>
-                      <span className="badge badge-info">{item.category}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm text-gray-500">
-                      <span>{item.brand}</span>
-                      <span className="capitalize">{item.condition.replace('_', ' ')}</span>
-                    </div>
+                  
+                  <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-2">{item.title}</h3>
+                  
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-blue-600 font-bold">{item.points} points</span>
+                    <span className="badge badge-info">{item.category}</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                    <span>{item.brand}</span>
+                    <span className="capitalize">{item.condition.replace('_', ' ')}</span>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/item/${item.id}`}
+                      className="flex-1 btn-secondary text-center text-sm"
+                    >
+                      View
+                    </Link>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleAddToCart(item)}
+                      className="flex-1 btn-primary text-sm"
+                    >
+                      Add to Cart
+                    </motion.button>
                   </div>
                 </motion.div>
-              </SwiperSlide>
-            ))}
-          </Swiper>
+              ))}
+            </div>
+          )}
+
+          {!loading && featuredItems.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center py-12"
+            >
+              <div className="text-6xl mb-4">🛍️</div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No items available yet</h3>
+              <p className="text-gray-600 mb-6">Be the first to add an item to our community!</p>
+              <Link href="/add-item">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="btn-primary"
+                >
+                  Add Your First Item
+                </motion.button>
+              </Link>
+            </motion.div>
+          )}
         </div>
       </section>
 
-      {/* Categories Grid */}
-      <section className="py-20 bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Categories Section */}
+      <section className="py-20 bg-white/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="text-center mb-12"
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Browse Categories</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Find exactly what you're looking for in our curated categories
-            </p>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Browse by Category</h2>
+            <p className="text-xl text-gray-600">Find exactly what you're looking for</p>
           </motion.div>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             {categories.map((category, index) => (
               <motion.div
                 key={category.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                whileHover={{ y: -5, scale: 1.05 }}
-                className="group"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
                 <Link href={`/browse?category=${category.id}`}>
-                  <div className={`${category.gradient} p-8 rounded-3xl text-center text-white shadow-xl hover:shadow-2xl transition-all duration-300 group-hover:scale-105`}>
-                    <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">
-                      {category.icon}
-                    </div>
-                    <h3 className="font-bold text-lg">{category.name}</h3>
+                  <div className={`bg-gradient-to-br ${category.color} p-6 rounded-2xl text-center text-white shadow-lg hover:shadow-xl transition-all duration-300`}>
+                    <div className="text-4xl mb-3">{category.icon}</div>
+                    <h3 className="font-semibold">{category.name}</h3>
                   </div>
                 </Link>
               </motion.div>
@@ -329,49 +259,86 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* How It Works Section */}
-      <section className="py-20 bg-white">
+      {/* How It Works */}
+      <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            className="text-center mb-12"
           >
             <h2 className="text-4xl font-bold text-gray-900 mb-4">How It Works</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Join our community in just a few simple steps
-            </p>
+            <p className="text-xl text-gray-600">Join our sustainable fashion community in three simple steps</p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { step: '1', title: 'List Your Items', description: 'Upload photos and details of items you want to swap', icon: '📸' },
-              { step: '2', title: 'Browse & Connect', description: 'Find items you love and send swap requests', icon: '🔍' },
-              { step: '3', title: 'Swap & Share', description: 'Meet up or ship items and build connections', icon: '🤝' },
-            ].map((item, index) => (
+              {
+                icon: '📱',
+                title: 'Add Your Items',
+                description: 'Upload photos and details of items you want to share with the community.',
+              },
+              {
+                icon: '🔄',
+                title: 'Earn Points',
+                description: 'Get points for every item you add. Use points to claim items from others.',
+              },
+              {
+                icon: '🛍️',
+                title: 'Discover & Claim',
+                description: 'Browse through community items and claim what you love using your points.',
+              },
+            ].map((step, index) => (
               <motion.div
-                key={item.step}
+                key={index}
                 initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.2 }}
-                viewport={{ once: true }}
-                className="text-center group"
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.8 + index * 0.1 }}
+                className="text-center"
               >
-                <div className="relative mb-6">
-                  <div className="w-20 h-20 mx-auto bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-3xl group-hover:scale-110 transition-transform duration-300">
-                    {item.icon}
-                  </div>
-                  <div className="absolute -top-2 -right-2 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                    {item.step}
-                  </div>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">{item.title}</h3>
-                <p className="text-gray-600">{item.description}</p>
+                <div className="text-6xl mb-4">{step.icon}</div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">{step.title}</h3>
+                <p className="text-gray-600">{step.description}</p>
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 1 }}
+          >
+            <h2 className="text-4xl font-bold text-white mb-4">Ready to Join?</h2>
+            <p className="text-xl text-blue-100 mb-8">
+              Start sharing and discovering amazing fashion pieces today
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/register">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="btn-primary bg-white text-blue-600 hover:bg-gray-100"
+                >
+                  Get Started
+                </motion.button>
+              </Link>
+              <Link href="/browse">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="btn-secondary border-white text-white hover:bg-white hover:text-blue-600"
+                >
+                  Browse Items
+                </motion.button>
+              </Link>
+            </div>
+          </motion.div>
         </div>
       </section>
     </div>

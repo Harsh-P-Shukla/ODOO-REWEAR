@@ -3,7 +3,6 @@ import dbConnect from '@/lib/db';
 import Item from '@/models/Item';
 import User from '@/models/User';
 
-// GET /api/items/[id] - Get a specific item
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -20,9 +19,9 @@ export async function GET(
       );
     }
 
-    // Find item and populate user info
+    // Find the item and populate user info
     const item = await Item.findById(id)
-      .populate('userId', 'name avatar bio stats.rating location')
+      .populate('userId', 'name email')
       .lean();
 
     if (!item) {
@@ -32,29 +31,43 @@ export async function GET(
       );
     }
 
-    // Increment view count
-    await Item.findByIdAndUpdate(id, { $inc: { views: 1 } });
-
-    // Get related items (same category, different user)
-    const relatedItems = await Item.find({
+    // Transform item to match frontend structure
+    const transformedItem = {
+      id: item._id.toString(),
+      title: item.title,
+      description: item.description,
+      images: item.images,
+      points: item.points,
       category: item.category,
-      userId: { $ne: item.userId },
-      status: 'available',
-      _id: { $ne: id }
-    })
-      .populate('userId', 'name avatar stats.rating')
-      .limit(4)
-      .lean();
+      type: item.type,
+      size: item.size,
+      condition: item.condition,
+      tags: item.tags || [],
+      status: item.status,
+      brand: item.brand || 'Unknown',
+      location: item.location || 'Unknown',
+      seller: {
+        name: item.userId?.name || 'Unknown',
+        email: item.userId?.email || 'unknown@example.com',
+      },
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+    };
 
     return NextResponse.json({
       success: true,
-      data: {
-        ...item,
-        relatedItems,
-      },
+      data: transformedItem,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching item:', error);
+    
+    if (error.name === 'CastError') {
+      return NextResponse.json(
+        { success: false, message: 'Invalid item ID format' },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
       { success: false, message: 'Failed to fetch item' },
       { status: 500 }

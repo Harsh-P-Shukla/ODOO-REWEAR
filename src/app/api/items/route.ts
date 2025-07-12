@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Item from '@/models/Item';
 import User from '@/models/User';
+import { requireAuth } from '@/lib/auth';
 
 // GET /api/items - Get all items with filtering and pagination
 export async function GET(request: NextRequest) {
@@ -88,6 +89,8 @@ export async function GET(request: NextRequest) {
 // POST /api/items - Create a new item
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const user = await requireAuth(request);
     await dbConnect();
     
     const body = await request.json();
@@ -105,11 +108,10 @@ export async function POST(request: NextRequest) {
       images,
       points,
       location,
-      userId,
     } = body;
 
     // Validate required fields
-    if (!title || !description || !category || !type || !size || !condition || !images || !points || !userId) {
+    if (!title || !description || !category || !type || !size || !condition || !images || !points) {
       return NextResponse.json(
         { success: false, message: 'Missing required fields' },
         { status: 400 }
@@ -124,19 +126,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user exists and has sufficient points
-    const user = await User.findById(userId);
-    if (!user) {
+    // Validate images array
+    if (!Array.isArray(images) || images.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'User not found' },
-        { status: 404 }
+        { success: false, message: 'At least one image is required' },
+        { status: 400 }
       );
     }
 
     // Create the item
     const item = new Item({
-      title,
-      description,
+      title: title.trim(),
+      description: description.trim(),
       category,
       subcategory,
       brand,
@@ -146,15 +147,15 @@ export async function POST(request: NextRequest) {
       condition,
       tags: tags || [],
       images,
-      points,
+      points: parseInt(points),
       location,
-      userId,
+      userId: user._id,
     });
 
     await item.save();
 
     // Update user stats
-    await User.findByIdAndUpdate(userId, {
+    await User.findByIdAndUpdate(user._id, {
       $inc: { 'stats.itemsListed': 1 }
     });
 
@@ -170,6 +171,13 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
   } catch (error: any) {
     console.error('Error creating item:', error);
+    
+    if (error.message === 'Authentication required') {
+      return NextResponse.json(
+        { success: false, message: 'Authentication required' },
+        { status: 401 }
+      );
+    }
     
     if (error.name === 'ValidationError') {
       const messages = Object.values(error.errors).map((err: any) => err.message);

@@ -9,70 +9,28 @@ import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 import Navigation from '@/components/Navigation';
+import { useCart } from '@/contexts/CartContext';
+import toast from 'react-hot-toast';
 
-// Placeholder data
-const items = [
-  {
-    id: '1',
-    title: 'Vintage Denim Jacket',
-    image: 'https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=400&h=400&fit=crop',
-    points: 150,
-    category: 'clothing',
-    brand: 'Levi\'s',
-    condition: 'vintage',
-    location: 'New York, NY',
-  },
-  {
-    id: '2',
-    title: 'Leather Crossbody Bag',
-    image: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400&h=400&fit=crop',
-    points: 200,
-    category: 'bags',
-    brand: 'Coach',
-    condition: 'gently_used',
-    location: 'Los Angeles, CA',
-  },
-  {
-    id: '3',
-    title: 'Classic White Sneakers',
-    image: 'https://images.unsplash.com/photo-1549298916-b41d114d2c9d?w=400&h=400&fit=crop',
-    points: 180,
-    category: 'shoes',
-    brand: 'Nike',
-    condition: 'like_new',
-    location: 'Chicago, IL',
-  },
-  {
-    id: '4',
-    title: 'Silk Scarf Collection',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=400&fit=crop',
-    points: 80,
-    category: 'accessories',
-    brand: 'Hermès',
-    condition: 'new',
-    location: 'Miami, FL',
-  },
-  {
-    id: '5',
-    title: 'Gold Chain Necklace',
-    image: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=400&h=400&fit=crop',
-    points: 120,
-    category: 'jewelry',
-    brand: 'Cartier',
-    condition: 'gently_used',
-    location: 'San Francisco, CA',
-  },
-  {
-    id: '6',
-    title: 'Summer Dress',
-    image: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=400&h=400&fit=crop',
-    points: 90,
-    category: 'clothing',
-    brand: 'Zara',
-    condition: 'like_new',
-    location: 'Boston, MA',
-  },
-];
+interface Item {
+  id: string;
+  title: string;
+  description: string;
+  images: string[];
+  points: number;
+  category: string;
+  type: string;
+  size: string;
+  condition: string;
+  brand: string;
+  location: string;
+  seller: {
+    name: string;
+    email: string;
+  };
+  createdAt: string;
+  status: string; // Added status field
+}
 
 const categories = [
   { id: 'all', name: 'All Items', icon: '🛍️', color: 'from-gray-500 to-gray-600' },
@@ -93,32 +51,83 @@ const conditions = [
 ];
 
 export default function BrowsePage() {
+  const { addToCart } = useCart();
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedCondition, setSelectedCondition] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [viewMode, setViewMode] = useState('grid');
 
-  const filteredItems = items.filter(item => {
-    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
-    const matchesCondition = selectedCondition === 'all' || item.condition === selectedCondition;
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.brand.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesCondition && matchesSearch;
-  });
+  // Fetch items from API
+  useEffect(() => {
+    const fetchItems = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          category: selectedCategory,
+          condition: selectedCondition,
+          search: searchQuery,
+          sortBy: sortBy === 'newest' ? 'createdAt' : 'points',
+          sortOrder: sortBy === 'points-high' ? 'desc' : 'asc',
+        });
 
-  const sortedItems = [...filteredItems].sort((a, b) => {
-    switch (sortBy) {
-      case 'points-low':
-        return a.points - b.points;
-      case 'points-high':
-        return b.points - a.points;
-      case 'newest':
-        return b.id.localeCompare(a.id);
-      default:
-        return 0;
+        const response = await fetch(`/api/items/browse?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+          setItems(data.data);
+        } else {
+          console.error('Failed to fetch items:', data.message);
+        }
+      } catch (error) {
+        console.error('Error fetching items:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchItems();
+  }, [selectedCategory, selectedCondition, searchQuery, sortBy]);
+
+  const handleAddToCart = (item: Item) => {
+    // Check if item is available before adding to cart
+    if (item.status !== 'available') {
+      toast.error(`${item.title} is no longer available`);
+      return;
     }
-  });
+    
+    addToCart({
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      images: item.images,
+      points: item.points,
+      category: item.category,
+      type: item.type,
+      size: item.size,
+      condition: item.condition,
+      seller: item.seller,
+    });
+    toast.success(`${item.title} added to cart!`);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
+        <Navigation />
+        <div className="pt-20 pb-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading items...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
@@ -291,7 +300,7 @@ export default function BrowsePage() {
             className="mb-6"
           >
             <p className="text-gray-600">
-              Showing {sortedItems.length} of {items.length} items
+              Showing {items.length} items
             </p>
           </motion.div>
 
@@ -308,7 +317,7 @@ export default function BrowsePage() {
                 : 'space-y-4'
               }
             >
-              {sortedItems.map((item, index) => (
+              {items.map((item, index) => (
                 <motion.div
                   key={item.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -325,7 +334,7 @@ export default function BrowsePage() {
                     : 'w-24 h-24 flex-shrink-0 overflow-hidden rounded-xl'
                   }>
                     <img
-                      src={item.image}
+                      src={item.images[0] || 'https://via.placeholder.com/400x400?text=No+Image'}
                       alt={item.title}
                       className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
                     />
@@ -334,9 +343,14 @@ export default function BrowsePage() {
                   <div className={viewMode === 'grid' ? 'space-y-3' : 'flex-1 space-y-2'}>
                     <h3 className="font-bold text-lg text-gray-900 line-clamp-2">{item.title}</h3>
                     
-                    <div className="flex items-center justify-between">
-                      <span className="text-blue-600 font-bold text-lg">{item.points} points</span>
-                      <span className="badge badge-info">{item.category}</span>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-blue-600 font-bold">{item.points} points</span>
+                      <div className="flex gap-2">
+                        <span className="badge badge-info">{item.category}</span>
+                        {item.status !== 'available' && (
+                          <span className="badge badge-warning">Sold</span>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="flex items-center justify-between text-sm text-gray-500">
@@ -350,13 +364,27 @@ export default function BrowsePage() {
                       </div>
                     )}
                     
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="btn-primary w-full mt-4"
-                    >
-                      View Details
-                    </motion.button>
+                    <div className="flex gap-2">
+                      <Link
+                        href={`/item/${item.id}`}
+                        className="flex-1 btn-secondary text-center text-sm"
+                      >
+                        View
+                      </Link>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleAddToCart(item)}
+                        className={`flex-1 text-sm ${
+                          item.status === 'available' 
+                            ? 'btn-primary' 
+                            : 'bg-gray-400 text-white cursor-not-allowed'
+                        }`}
+                        disabled={item.status !== 'available'}
+                      >
+                        {item.status === 'available' ? 'Add to Cart' : 'Sold'}
+                      </motion.button>
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -364,7 +392,7 @@ export default function BrowsePage() {
           </AnimatePresence>
 
           {/* Empty State */}
-          {sortedItems.length === 0 && (
+          {items.length === 0 && !loading && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}

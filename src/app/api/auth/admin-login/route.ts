@@ -1,59 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
-import { generateToken, updateUserLastActive } from '@/lib/auth';
+import { generateToken } from '@/lib/auth';
+
+const ADMIN_PASSKEY = '111111';
 
 export async function POST(request: NextRequest) {
   try {
     await dbConnect();
     
-    const { email, password } = await request.json();
+    const { passkey } = await request.json();
     
     // Validate input
-    if (!email || !password) {
+    if (!passkey) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { error: 'Passkey is required' },
         { status: 400 }
       );
     }
     
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    // Validate passkey
+    if (passkey !== ADMIN_PASSKEY) {
       return NextResponse.json(
-        { error: 'Please enter a valid email address' },
-        { status: 400 }
-      );
-    }
-    
-    // Find user by email
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
+        { error: 'Invalid passkey' },
         { status: 401 }
       );
+    }
+    
+    // Create or find admin user
+    let user = await User.findOne({ role: 'admin' });
+    
+    if (!user) {
+      // Create a default admin user if none exists
+      user = await User.create({
+        name: 'Admin User',
+        email: 'admin@rewear.com',
+        password: 'admin123', // This won't be used for login
+        role: 'admin',
+        points: 10000,
+        isActive: true,
+        stats: {
+          itemsListed: 0,
+          itemsSwapped: 0,
+          totalSwaps: 0,
+          rating: 5.0,
+          reviews: 0,
+        },
+        level: 'admin',
+      });
     }
     
     // Check if user is active
     if (!user.isActive) {
       return NextResponse.json(
-        { error: 'Account is deactivated. Please contact support.' },
+        { error: 'Account is deactivated' },
         { status: 401 }
       );
     }
-    
-    // Verify password
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      );
-    }
-    
-    // Update last active
-    await updateUserLastActive(user._id.toString());
     
     // Generate JWT token
     const token = generateToken(user);
@@ -61,7 +64,7 @@ export async function POST(request: NextRequest) {
     // Create response with token in cookie
     const response = NextResponse.json(
       { 
-        message: 'Login successful',
+        message: 'Admin login successful',
         user: {
           id: user._id,
           name: user.name,
@@ -86,9 +89,8 @@ export async function POST(request: NextRequest) {
     
     return response;
   } catch (error: any) {
-    console.error('Login error:', error);
+    console.error('Admin login error:', error);
     
-    // Handle specific errors
     if (error.name === 'ValidationError') {
       return NextResponse.json(
         { error: 'Invalid input data' },

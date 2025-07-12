@@ -3,67 +3,44 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Navigation from '@/components/Navigation';
 
-// Placeholder data
-const userData = {
-  name: 'Sarah Johnson',
-  email: 'sarah.johnson@email.com',
-  avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
-  points: 450,
-  role: 'user',
-};
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  points: number;
+  role: string;
+  stats?: {
+    itemsListed: number;
+    itemsSwapped: number;
+    totalSwaps: number;
+    rating: number;
+    reviews: number;
+  };
+  level?: string;
+}
 
-const myListings = [
-  {
-    id: '1',
-    title: 'Vintage Denim Jacket',
-    image: 'https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=300&h=300&fit=crop',
-    points: 150,
-    status: 'available',
-    category: 'clothing',
-    createdAt: '2024-01-15',
-  },
-  {
-    id: '2',
-    title: 'Leather Crossbody Bag',
-    image: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=300&h=300&fit=crop',
-    points: 200,
-    status: 'pending',
-    category: 'bags',
-    createdAt: '2024-01-10',
-  },
-  {
-    id: '3',
-    title: 'Classic White Sneakers',
-    image: 'https://images.unsplash.com/photo-1549298916-b41d114d2c9d?w=300&h=300&fit=crop',
-    points: 180,
-    status: 'swapped',
-    category: 'shoes',
-    createdAt: '2024-01-05',
-  },
-];
+interface Transaction {
+  id: string;
+  type: string;
+  amount: number;
+  description: string;
+  status: string;
+  createdAt: string;
+}
 
-const myPurchases = [
-  {
-    id: '1',
-    title: 'Silk Scarf Collection',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&h=300&fit=crop',
-    points: 80,
-    status: 'completed',
-    seller: 'Emma Wilson',
-    completedAt: '2024-01-12',
-  },
-  {
-    id: '2',
-    title: 'Vintage Sunglasses',
-    image: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=300&h=300&fit=crop',
-    points: 120,
-    status: 'pending',
-    seller: 'Mike Chen',
-    requestedAt: '2024-01-18',
-  },
-];
+interface Item {
+  id: string;
+  title: string;
+  image: string;
+  points: number;
+  status: string;
+  category: string;
+  createdAt: string;
+}
 
 const getStatusBadge = (status: string) => {
   const statusConfig = {
@@ -77,7 +54,65 @@ const getStatusBadge = (status: string) => {
 };
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<'listings' | 'purchases'>('listings');
+  const [user, setUser] = useState<User | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [myListings, setMyListings] = useState<Item[]>([]);
+  const [myPurchases, setMyPurchases] = useState<Item[]>([]);
+  const [activeTab, setActiveTab] = useState<'overview' | 'listings' | 'purchases' | 'transactions'>('overview');
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        // Check authentication
+        const authResponse = await fetch('/api/auth/me');
+        if (!authResponse.ok) {
+          router.push('/login');
+          return;
+        }
+
+        const authData = await authResponse.json();
+        setUser(authData.user);
+
+        // Fetch user profile with recent data
+        const profileResponse = await fetch('/api/users/profile');
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          setMyListings(profileData.recentItems || []);
+          setMyPurchases(profileData.recentSwapRequests || []);
+        }
+
+        // Fetch recent transactions
+        const transactionsResponse = await fetch('/api/credits/transactions?limit=5');
+        if (transactionsResponse.ok) {
+          const transactionsData = await transactionsResponse.json();
+          setTransactions(transactionsData.transactions || []);
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -103,28 +138,58 @@ export default function DashboardPage() {
           className="bg-white rounded-lg shadow-md p-6 mb-8"
         >
           <div className="flex items-center space-x-4">
-            <img
-              src={userData.avatar}
-              alt={userData.name}
-              className="w-16 h-16 rounded-full object-cover"
-            />
+            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+              <span className="text-white font-bold text-xl">
+                {user.avatar || user.name.charAt(0).toUpperCase()}
+              </span>
+            </div>
             <div className="flex-1">
-              <h2 className="text-xl font-semibold text-gray-900">{userData.name}</h2>
-              <p className="text-gray-600">{userData.email}</p>
+              <h2 className="text-xl font-semibold text-gray-900">{user.name}</h2>
+              <p className="text-gray-600">{user.email}</p>
+              {user.level && (
+                <p className="text-sm text-blue-600 font-medium">{user.level} Level</p>
+              )}
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold text-blue-600">{userData.points}</div>
+              <div className="text-2xl font-bold text-blue-600">{user.points}</div>
               <div className="text-sm text-gray-500">Points Balance</div>
             </div>
           </div>
         </motion.div>
 
+        {/* Stats Cards */}
+        {user.stats && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8"
+          >
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="text-2xl font-bold text-blue-600">{user.stats.itemsListed}</div>
+              <div className="text-sm text-gray-500">Items Listed</div>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="text-2xl font-bold text-green-600">{user.stats.itemsSwapped}</div>
+              <div className="text-sm text-gray-500">Items Swapped</div>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="text-2xl font-bold text-purple-600">{user.stats.totalSwaps}</div>
+              <div className="text-sm text-gray-500">Total Swaps</div>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="text-2xl font-bold text-yellow-600">{user.stats.rating.toFixed(1)}</div>
+              <div className="text-sm text-gray-500">Average Rating</div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Quick Actions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8"
         >
           <Link
             href="/add-item"
@@ -142,22 +207,43 @@ export default function DashboardPage() {
             <div className="font-semibold">Browse Items</div>
             <div className="text-sm opacity-90">Find new pieces</div>
           </Link>
-          <div className="bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg text-center transition-colors duration-200">
-            <div className="text-2xl mb-2">📊</div>
-            <div className="font-semibold">Earn Points</div>
-            <div className="text-sm opacity-90">Complete swaps</div>
-          </div>
+          <Link
+            href="/credits"
+            className="bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg text-center transition-colors duration-200"
+          >
+            <div className="text-2xl mb-2">💰</div>
+            <div className="font-semibold">Buy Credits</div>
+            <div className="text-sm opacity-90">Get more points</div>
+          </Link>
+          <Link
+            href="/profile"
+            className="bg-orange-600 hover:bg-orange-700 text-white p-4 rounded-lg text-center transition-colors duration-200"
+          >
+            <div className="text-2xl mb-2">👤</div>
+            <div className="font-semibold">Edit Profile</div>
+            <div className="text-sm opacity-90">Update your info</div>
+          </Link>
         </motion.div>
 
         {/* Tabs */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
           className="bg-white rounded-lg shadow-md"
         >
           <div className="border-b border-gray-200">
             <nav className="flex space-x-8 px-6">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'overview'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Overview
+              </button>
               <button
                 onClick={() => setActiveTab('listings')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
@@ -178,10 +264,73 @@ export default function DashboardPage() {
               >
                 My Purchases ({myPurchases.length})
               </button>
+              <button
+                onClick={() => setActiveTab('transactions')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'transactions'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Transactions ({transactions.length})
+              </button>
             </nav>
           </div>
 
           <div className="p-6">
+            {activeTab === 'overview' && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                {/* Recent Transactions */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Transactions</h3>
+                  <div className="space-y-3">
+                    {transactions.slice(0, 5).map((transaction) => (
+                      <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <p className="font-medium text-gray-900">{transaction.description}</p>
+                          <p className="text-sm text-gray-500">{new Date(transaction.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-semibold ${transaction.type === 'deduction' ? 'text-red-600' : 'text-green-600'}`}>
+                            {transaction.type === 'deduction' ? '-' : '+'}{transaction.amount} points
+                          </p>
+                          <span className={`badge ${transaction.status === 'completed' ? 'badge-success' : 'badge-warning'}`}>
+                            {transaction.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    {transactions.length === 0 && (
+                      <p className="text-gray-500 text-center py-4">No recent transactions</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Recent Listings */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Listings</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {myListings.slice(0, 3).map((item) => (
+                      <div key={item.id} className="bg-gray-50 rounded-lg p-4">
+                        <img src={item.image} alt={item.title} className="w-full h-32 object-cover rounded-lg mb-3" />
+                        <h4 className="font-medium text-gray-900">{item.title}</h4>
+                        <p className="text-sm text-gray-600">{item.points} points</p>
+                        {getStatusBadge(item.status)}
+                      </div>
+                    ))}
+                    {myListings.length === 0 && (
+                      <p className="text-gray-500 text-center py-4">No listings yet</p>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {activeTab === 'listings' && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -198,44 +347,19 @@ export default function DashboardPage() {
                     Add New Item
                   </Link>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {myListings.map((item) => (
-                    <motion.div
-                      key={item.id}
-                      whileHover={{ y: -2 }}
-                      className="card overflow-hidden"
-                    >
-                      <div className="aspect-square overflow-hidden">
-                        <img
-                          src={item.image}
-                          alt={item.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="p-4">
-                        <h4 className="font-semibold text-gray-900 mb-2">{item.title}</h4>
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-blue-600 font-bold">{item.points} points</span>
-                          {getStatusBadge(item.status)}
-                        </div>
-                        <div className="flex justify-between items-center text-sm text-gray-500">
-                          <span>{item.category}</span>
-                          <span>{new Date(item.createdAt).toLocaleDateString()}</span>
-                        </div>
-                        <div className="mt-3 flex space-x-2">
-                          <Link
-                            href={`/item/${item.id}`}
-                            className="btn-secondary text-xs flex-1 text-center"
-                          >
-                            View Details
-                          </Link>
-                          <button className="btn-danger text-xs flex-1">
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
+                    <div key={item.id} className="bg-gray-50 rounded-lg p-4">
+                      <img src={item.image} alt={item.title} className="w-full h-32 object-cover rounded-lg mb-3" />
+                      <h4 className="font-medium text-gray-900">{item.title}</h4>
+                      <p className="text-sm text-gray-600">{item.points} points</p>
+                      {getStatusBadge(item.status)}
+                    </div>
                   ))}
+                  {myListings.length === 0 && (
+                    <p className="text-gray-500 text-center py-8">No listings yet. Start by adding your first item!</p>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -247,46 +371,53 @@ export default function DashboardPage() {
                 transition={{ duration: 0.3 }}
                 className="space-y-4"
               >
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">My Purchases & Swaps</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">My Purchases</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {myPurchases.map((item) => (
-                    <motion.div
-                      key={item.id}
-                      whileHover={{ y: -2 }}
-                      className="card overflow-hidden"
-                    >
-                      <div className="aspect-square overflow-hidden">
-                        <img
-                          src={item.image}
-                          alt={item.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="p-4">
-                        <h4 className="font-semibold text-gray-900 mb-2">{item.title}</h4>
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-blue-600 font-bold">{item.points} points</span>
-                          {getStatusBadge(item.status)}
-                        </div>
-                        <div className="text-sm text-gray-500 mb-2">
-                          <div>Seller: {item.seller}</div>
-                          <div>
-                            {item.status === 'completed' ? 'Completed' : 'Requested'}: {
-                              new Date(item.completedAt || item.requestedAt).toLocaleDateString()
-                            }
-                          </div>
-                        </div>
-                        <div className="mt-3">
-                          <Link
-                            href={`/item/${item.id}`}
-                            className="btn-secondary text-xs w-full text-center block"
-                          >
-                            View Details
-                          </Link>
-                        </div>
-                      </div>
-                    </motion.div>
+                    <div key={item.id} className="bg-gray-50 rounded-lg p-4">
+                      <img src={item.image} alt={item.title} className="w-full h-32 object-cover rounded-lg mb-3" />
+                      <h4 className="font-medium text-gray-900">{item.title}</h4>
+                      <p className="text-sm text-gray-600">{item.points} points</p>
+                      {getStatusBadge(item.status)}
+                    </div>
                   ))}
+                  {myPurchases.length === 0 && (
+                    <p className="text-gray-500 text-center py-8">No purchases yet. Start browsing items!</p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'transactions' && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-4"
+              >
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Transaction History</h3>
+                
+                <div className="space-y-3">
+                  {transactions.map((transaction) => (
+                    <div key={transaction.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="font-medium text-gray-900">{transaction.description}</p>
+                        <p className="text-sm text-gray-500">{new Date(transaction.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-semibold ${transaction.type === 'deduction' ? 'text-red-600' : 'text-green-600'}`}>
+                          {transaction.type === 'deduction' ? '-' : '+'}{transaction.amount} points
+                        </p>
+                        <span className={`badge ${transaction.status === 'completed' ? 'badge-success' : 'badge-warning'}`}>
+                          {transaction.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {transactions.length === 0 && (
+                    <p className="text-gray-500 text-center py-8">No transactions yet</p>
+                  )}
                 </div>
               </motion.div>
             )}
